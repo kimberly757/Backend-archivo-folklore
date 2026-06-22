@@ -22,7 +22,7 @@ const schema = Joi.object({
 
   // Seguridad
   JWT_SECRET: Joi.string().default('secret_key_default_archivo_folklore_12345'),
-  JWT_EXPIRES_IN: Joi.string().default('24h'),
+  JWT_EXPIRATION: Joi.string().default('24h'),
 
   // Correo SMTP (opcional para desarrollo)
   EMAIL_HOST: Joi.string().default('smtp.gmail.com'),
@@ -61,7 +61,7 @@ module.exports = {
   },
   jwt: {
     secret: envVars.JWT_SECRET,
-    expiresIn: envVars.JWT_EXPIRES_IN,
+    expiresIn: envVars.JWT_EXPIRATION,
   },
   email: {
     host: envVars.EMAIL_HOST,
