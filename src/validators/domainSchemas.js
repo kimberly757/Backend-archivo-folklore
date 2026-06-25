@@ -29,7 +29,7 @@ const usuariosCreateSchema = z.object({
   primer_apellido: z.string().min(2).max(50),
   segundo_apellido: z.string().max(50).optional().nullable(),
   correo: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(8).optional(),
   id_rol: positiveInt.optional().nullable(),
   telefono: z.string().max(20).optional().nullable(),
   activo: z.boolean().optional(),
