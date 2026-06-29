@@ -25,7 +25,9 @@ function requireRole(roles) {
     }
     
     const allowed = Array.isArray(roles) ? roles : [roles];
-    if (!allowed.includes(req.auth.rol)) {
+    const userRole = req.auth.rol.toLowerCase();
+    const allowedLower = allowed.map(r => r.toLowerCase());
+    if (!allowedLower.includes(userRole)) {
       return res.status(403).json({ message: 'Acceso prohibido para este rol' });
     }
     

@@ -23,6 +23,7 @@ const Sesiones = require('./sesionesModel')(sequelize, Sequelize.DataTypes);
 const Tipos = require('./tiposFolkloreModel')(sequelize, Sequelize.DataTypes);
 const Usuarios = require('./usuariosModel')(sequelize, Sequelize.DataTypes);
 const Roles = require('./rolesModel')(sequelize, Sequelize.DataTypes);
+const ConfiguracionWeb = require('./configuracionWebModel')(sequelize, Sequelize.DataTypes);
 
 // Relaciones: Parroquias <-> Municipios
 Parroquias.belongsTo(Municipios, { foreignKey: 'id_municipio', as: 'municipio' });
@@ -164,4 +165,5 @@ module.exports = {
   Tipos,
   Usuarios,
   Roles,
+  ConfiguracionWeb,
 };

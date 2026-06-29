@@ -23,6 +23,8 @@ const tiposFolkloreRoutes = require('./tiposFolkloreRoutes');
 const usuariosRoutes = require('./usuariosRoutes');
 const authRoutes = require('./authRoutes');
 const rolesRoutes = require('./rolesRoutes');
+const configuracionWebRoutes = require('./configuracionWebRoutes');
+const publicGaleriaRoutes = require('./publicGaleriaRoutes');
 
 const router = express.Router();
 
@@ -50,6 +52,8 @@ const routeModules = [
   sesionesRoutes,
   tiposFolkloreRoutes,
   usuariosRoutes,
+  publicGaleriaRoutes,
+  configuracionWebRoutes,
 ];
 
 routeModules.forEach((routeModule) => {

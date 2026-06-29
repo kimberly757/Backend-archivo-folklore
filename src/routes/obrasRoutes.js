@@ -19,7 +19,8 @@ router.post('/', requireAuth, validateZod({ body: obrasCreateSchema }), controll
 
 // Rutas de escritura protegidas (gestión administrativa)
 router.put('/:id_obra', requireAuth, validateZod({ params: makeParamIdSchema('id_obra'), body: obrasUpdateSchema }), controller.update);
-router.patch('/:id_obra/estatus', requireAuth, requireRole('administrador'), validateZod({ params: makeParamIdSchema('id_obra'), body: estatusSchema }), controller.updateEstatus);
+router.patch('/:id_obra/estatus', requireAuth, requireRole('Administrador'), validateZod({ params: makeParamIdSchema('id_obra'), body: estatusSchema }), controller.updateEstatus);
+router.patch('/:id_obra/destacado', requireAuth, requireRole('Administrador'), controller.updateDestacado);
 router.delete('/:id_obra', requireAuth, validateZod({ params: makeParamIdSchema('id_obra') }), controller.delete);
 
 module.exports = { path: '/obras', router };

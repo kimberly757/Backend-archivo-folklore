@@ -106,3 +106,18 @@ exports.remove = exports.delete = async (req, res, next) => {
     next(err);
   }
 };
+
+// Actualizar el campo destacado_galeria
+exports.updateDestacado = async (req, res, next) => {
+  try {
+    const item = await Obras.findByPk(req.params.id_obra);
+    if (!item) {
+      return res.status(404).json({ error: 'Obra no encontrada' });
+    }
+    const { destacado_galeria } = req.body;
+    await item.update({ destacado_galeria });
+    res.json(item);
+  } catch (err) {
+    next(err);
+  }
+};
