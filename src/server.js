@@ -1,6 +1,7 @@
 const app = require('./app');
 const config = require('./config/env');
 const { testConnection, sequelize } = require('./config/database');
+const { execSync } = require('child_process');
 
 const port = config.port || 3000;
 const DB_RETRY_INTERVAL_MS = 10000;
@@ -19,9 +20,7 @@ async function syncDatabase() {
 }
 
 async function tryConnectDatabase() {
-  if (isCheckingConnection || dbConnected) {
-    return;
-  }
+  if (isCheckingConnection || dbConnected) return;
   isCheckingConnection = true;
 
   const connected = await testConnection();
@@ -29,35 +28,53 @@ async function tryConnectDatabase() {
 
   if (connected) {
     dbConnected = true;
-    if (retryTimer) {
-      clearInterval(retryTimer);
-      retryTimer = null;
-    }
+    if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
     await syncDatabase();
     return;
   }
 
   if (!retryTimer) {
-    console.warn(`⚠️  Sin conexión a la base de datos. Reintentando cada ${DB_RETRY_INTERVAL_MS / 1000}s (verifica si la VPN está activa)...`);
+    console.warn(`⚠️  Sin conexión a la base de datos. Reintentando cada ${DB_RETRY_INTERVAL_MS / 1000}s...`);
     retryTimer = setInterval(tryConnectDatabase, DB_RETRY_INTERVAL_MS);
   }
 }
 
-async function startServer() {
-  // 1. Intentar conectar a la base de datos SIN bloquear el arranque del servidor
+// Mata con netstat el PID exacto que escucha en el puerto, sin errores si no hay nadie
+function liberarPuerto(p) {
+  if (process.platform !== 'win32') {
+    try { execSync(`lsof -ti tcp:${p} | xargs kill -9`); } catch (_) { /* ya libre */ }
+    return;
+  }
+  try {
+    // Obtener solo la línea LISTENING y extraer el PID (última columna)
+    const salida = execSync(`netstat -ano | findstr ":${p} " | findstr "LISTENING"`, { encoding: 'utf8' });
+    const pid = salida.trim().split(/\s+/).at(-1);
+    if (pid && /^\d+$/.test(pid) && pid !== '0') {
+      execSync(`taskkill /PID ${pid} /F`, { stdio: 'ignore' });
+      console.log(`🔪 Proceso ${pid} en puerto ${p} eliminado.`);
+    }
+  } catch (_) { /* puerto ya libre, nada que hacer */ }
+}
+
+async function startServer(attempt = 0) {
   await tryConnectDatabase();
 
-  // 2. Iniciar la escucha del servidor de Express de todas formas
   const server = app.listen(port, () => {
     console.log(`🚀 Server listening on port ${port}`);
   });
 
-  server.on('error', (err) => {
+  server.on('error', async (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(`❌ Error: Port ${port} is already in use by another process.`);
-      process.exit(1);
+      if (attempt >= 3) {
+        console.error(`❌ No se pudo liberar el puerto ${port} tras 3 intentos. Detenlo manualmente.`);
+        process.exit(1);
+      }
+      console.warn(`⚠️  Puerto ${port} ocupado (intento ${attempt + 1}/3). Liberando...`);
+      liberarPuerto(port);
+      await new Promise((r) => setTimeout(r, 1200));
+      startServer(attempt + 1);
     } else {
-      console.error('❌ Error starting server:', err.message);
+      console.error('❌ Error al iniciar el servidor:', err.message);
       process.exit(1);
     }
   });
