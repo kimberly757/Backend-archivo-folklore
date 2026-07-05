@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { Cultores, Usuarios, Roles, Parroquias, Municipios, Notificaciones, FeDeVida, Oficios, sequelize } = require('../models');
 const { hashPassword } = require('../services/passwordService');
 const { subirBuffer } = require('../services/cloudinaryService');
+const { getIO } = require('../services/socketManager');
 
 const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado'];
 
@@ -319,6 +320,7 @@ exports.update = async (req, res, next) => {
       return res.status(404).json({ error: 'Registro no encontrado en cultores' });
     }
     await item.update(req.body);
+    try { getIO().emit('cultor:updated', { id_cultor: item.id_cultor }); } catch (_) {}
     res.json(item);
   } catch (err) {
     next(err);
@@ -372,6 +374,8 @@ exports.updateEstatus = async (req, res, next) => {
       };
     }
 
+    try { getIO().emit('cultor:updated', { id_cultor: cultor.id_cultor }); } catch (_) {}
+
     res.json(respuesta);
   } catch (err) {
     next(err);
@@ -401,6 +405,7 @@ exports.updateMiPerfil = async (req, res, next) => {
     }
 
     await cultor.update(cambios);
+    try { getIO().emit('cultor:updated', { id_cultor: cultor.id_cultor }); } catch (_) {}
     res.json(cultor);
   } catch (err) {
     next(err);
@@ -419,6 +424,7 @@ exports.appendCurriculum = async (req, res, next) => {
     const anterior = cultor.resumen_curricular || '';
     const nuevo = anterior ? `${anterior}\n\n${texto.trim()}` : texto.trim();
     await cultor.update({ resumen_curricular: nuevo });
+    try { getIO().emit('cultor:updated', { id_cultor: cultor.id_cultor }); } catch (_) {}
     res.json(cultor);
   } catch (err) {
     next(err);

@@ -1,5 +1,6 @@
 const { Obras, Multimedia, Cultores, CategoriasObra, Notificaciones } = require('../models');
 const Sequelize = require('sequelize');
+const { getIO } = require('../services/socketManager');
 
 const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado', 'eliminado'];
 const { Op } = require('sequelize');
@@ -180,6 +181,7 @@ exports.update = async (req, res, next) => {
       return res.status(404).json({ error: 'Registro no encontrado en obras' });
     }
     await item.update(req.body);
+    try { getIO().emit('obra:updated', {}); } catch (_) {}
     res.json(item);
   } catch (err) {
     next(err);
@@ -235,6 +237,8 @@ exports.updateEstatus = async (req, res, next) => {
       console.error('[updateEstatus] No se pudo crear la notificación:', notifErr.message);
     }
 
+    try { getIO().emit('obra:updated', {}); } catch (_) {}
+
     res.json(item);
   } catch (err) {
     next(err);
@@ -259,6 +263,7 @@ exports.remove = exports.delete = async (req, res, next) => {
 
     // 3. Eliminar la obra de la BD
     await item.destroy();
+    try { getIO().emit('obra:updated', {}); } catch (_) {}
 
     res.status(204).end();
   } catch (err) {

@@ -1,4 +1,5 @@
 const { FeDeVida, Cultores } = require('../models');
+const { getIO } = require('../services/socketManager');
 
 // Listar todos los registros
 exports.list = exports.getAll = async (req, res, next) => {
@@ -33,6 +34,7 @@ exports.create = async (req, res, next) => {
         { where: { id_cultor: item.id_cultor } },
       );
     }
+    try { getIO().emit('fe-de-vida:updated', {}); } catch (_) {}
     res.status(201).json(item);
   } catch (err) {
     next(err);
@@ -53,6 +55,7 @@ exports.update = async (req, res, next) => {
         { where: { id_cultor: item.id_cultor } },
       );
     }
+    try { getIO().emit('fe-de-vida:updated', {}); } catch (_) {}
     res.json(item);
   } catch (err) {
     next(err);

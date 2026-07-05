@@ -25,3 +25,20 @@ exports.marcarLeidas = async (req, res, next) => {
     next(err);
   }
 };
+
+// Marca una notificación individual como leída (solo si pertenece al usuario autenticado).
+exports.marcarUnaLeida = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [updated] = await Notificaciones.update(
+      { leida: true },
+      { where: { id_notificacion: id, id_usuario: req.auth.id_usuario, leida: false } }
+    );
+    if (updated === 0) {
+      return res.status(404).json({ error: 'Notificación no encontrada o ya estaba leída.' });
+    }
+    res.json({ message: 'Notificación marcada como leída.' });
+  } catch (err) {
+    next(err);
+  }
+};

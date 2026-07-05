@@ -4,6 +4,9 @@ const { subirBuffer } = require('../services/cloudinaryService');
 // Obtener la configuración actual (Público)
 exports.get = async (req, res, next) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     let config = await ConfiguracionWeb.findOne();
     if (!config) {
       // Si no existe, creamos la fila por defecto

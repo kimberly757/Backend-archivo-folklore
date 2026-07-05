@@ -5,5 +5,6 @@ const { requireAuth } = require('../middlewares/authMiddleware');
 
 router.get('/', requireAuth, controller.getAll);
 router.put('/marcar-leidas', requireAuth, controller.marcarLeidas);
+router.patch('/:id/leer', requireAuth, controller.marcarUnaLeida);
 
 module.exports = { path: '/notificaciones', router };

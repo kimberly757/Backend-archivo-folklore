@@ -1,6 +1,7 @@
 const { Usuarios, Roles, Notificaciones } = require('../models');
 const { hashPassword } = require('../services/passwordService');
 const crypto = require('crypto');
+const { getIO } = require('../services/socketManager');
 
 // Listar todos los registros
 exports.list = exports.getAll = async (req, res, next) => {
@@ -126,6 +127,7 @@ exports.toggleActivo = async (req, res, next) => {
     }
     const nuevoValor = !item.activo;
     await item.update({ activo: nuevoValor });
+    try { getIO().emit('cultor:updated', {}); } catch (_) {}
     res.json({ activo: nuevoValor });
   } catch (err) {
     next(err);

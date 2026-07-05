@@ -37,8 +37,8 @@ const factory = (sequelize, DataTypes) => {
       type: DataTypes.STRING(2048),
       allowNull: true,
     },
-    // Controla si aparece en la web pública. La sección completa de Efemérides se
-    // oculta sola cuando no hay ninguna con activa = true (ver efemeridesController.js).
+    // Si es false, la efeméride no aparece en la web pública. Cuando no hay
+    // ninguna activa, la sección completa se oculta.
     activa: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

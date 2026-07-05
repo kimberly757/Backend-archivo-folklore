@@ -1,7 +1,9 @@
+const http = require('http');
 const app = require('./app');
 const config = require('./config/env');
 const { testConnection, sequelize } = require('./config/database');
 const { execSync } = require('child_process');
+const { initSocketIO } = require('./services/socketManager');
 
 const port = config.port || 3000;
 const DB_RETRY_INTERVAL_MS = 10000;
@@ -59,7 +61,9 @@ function liberarPuerto(p) {
 async function startServer(attempt = 0) {
   await tryConnectDatabase();
 
-  const server = app.listen(port, () => {
+  const server = http.createServer(app);
+  initSocketIO(server);
+  server.listen(port, () => {
     console.log(`🚀 Server listening on port ${port}`);
   });
 

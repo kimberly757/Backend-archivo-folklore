@@ -13,10 +13,13 @@ exports.getAll = async (req, res, next) => {
   }
 };
 
-// Listado público (sin auth): SOLO las activas, ordenadas por mes/día. La web
-// pública oculta la sección completa de Efemérides cuando esta lista viene vacía.
+// Listado público (sin auth): SOLO las activas. Cuando no hay ninguna, la web
+// oculta la sección completa de Efemérides sin mostrar mensaje.
 exports.getPublicas = async (req, res, next) => {
   try {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     const items = await Efemerides.findAll({
       where: { activa: true },
       order: [['mes', 'ASC'], ['dia', 'ASC']],

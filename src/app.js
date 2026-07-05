@@ -6,6 +6,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./docs/swagger');
 const routes = require('./routes');
 const { errorHandler, notFound } = require('./middlewares/errorHandler');
+const { getIO } = require('./services/socketManager');
 
 const app = express();
 
@@ -33,6 +34,19 @@ app.use(express.urlencoded({ extended: true }));
 
 // Documentación de API interactiva Swagger
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Emitir evento socket tras cualquier mutación exitosa en la API.
+// Debe ir ANTES de las rutas para que el 'finish' se registre a tiempo.
+app.use('/api', (req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    res.on('finish', () => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        try { getIO().emit('admin:update', {}); } catch (_) {}
+      }
+    });
+  }
+  next();
+});
 
 // Rutas de la API
 app.use('/api', routes);
