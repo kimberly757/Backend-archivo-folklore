@@ -1,6 +1,7 @@
 const crypto = require('crypto');
-const { Cultores, Usuarios, Roles, Parroquias, Municipios, Notificaciones, FeDeVida, sequelize } = require('../models');
+const { Cultores, Usuarios, Roles, Parroquias, Municipios, Notificaciones, FeDeVida, Oficios, sequelize } = require('../models');
 const { hashPassword } = require('../services/passwordService');
+const { subirBuffer } = require('../services/cloudinaryService');
 
 const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado'];
 
@@ -30,6 +31,11 @@ const CAMPOS_OCULTOS_PUBLICO = [
   'direccion_residencia',
   'datos_censo_adicionales',
 ];
+
+const LABEL_ESTATUS_VIDA = {
+  activo: 'Miembro Activo',
+  honorario: 'Miembro Honorario',
+};
 
 // Listar todos los registros (uso administrativo, requireAuth)
 // Admite ?estatus=pendiente|aprobado|rechazado para filtrar; sin el query param, devuelve todo.
@@ -76,15 +82,68 @@ exports.getMiPerfil = async (req, res, next) => {
   }
 };
 
-// Listado público (sin auth): SIEMPRE fuerza estatus = 'aprobado' en el servidor,
-// sin importar lo que el cliente intente mandar por query string. Oculta campos sensibles.
+// Listado público (sin auth) para el directorio de la web pública: solo devuelve
+// cultores aprobados cuyo usuario vinculado esté activo, incluye oficio principal,
+// ubicación y oculta campos sensibles.
 exports.getPublico = async (req, res, next) => {
   try {
     const items = await Cultores.findAll({
       where: { estatus: 'aprobado' },
       attributes: { exclude: CAMPOS_OCULTOS_PUBLICO },
+      include: [
+        {
+          model: Usuarios,
+          as: 'usuario',
+          attributes: ['activo'],
+          where: { activo: true },
+          required: true,
+        },
+        {
+          model: Oficios,
+          as: 'oficios',
+          attributes: ['id_oficio', 'nombre'],
+          through: { attributes: ['es_principal'] },
+          required: false,
+        },
+        {
+          model: Parroquias,
+          as: 'parroquia',
+          attributes: ['nombre'],
+          include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'] }],
+          required: false,
+        },
+        {
+          model: FeDeVida,
+          as: 'fesDeVida',
+          attributes: ['id_fe_vida', 'estatus_confirmado'],
+          required: false,
+        },
+      ],
     });
-    res.json(items);
+
+    const resultado = items.map((cultor) => {
+      const oficioPrincipal = cultor.oficios?.find((o) => o.CultorOficios?.es_principal === 'si')
+        || cultor.oficios?.[0];
+      const estatusVida = cultor.estatus_vida || (() => {
+        const regs = cultor.fesDeVida || [];
+        const ultimo = regs.length
+          ? [...regs].sort((a, b) => (b.id_fe_vida || 0) - (a.id_fe_vida || 0))[0]
+          : null;
+        return ultimo?.estatus_confirmado || null;
+      })();
+      return {
+        id: cultor.id_cultor,
+        nombre_completo: [cultor.primer_nombre, cultor.segundo_nombre, cultor.primer_apellido, cultor.segundo_apellido]
+          .filter(Boolean).join(' '),
+        oficio: oficioPrincipal?.nombre || null,
+        resumen_curricular: cultor.resumen_curricular,
+        foto_perfil: cultor.foto_perfil,
+        rol: LABEL_ESTATUS_VIDA[estatusVida] || null,
+        municipio: cultor.parroquia?.municipio?.nombre || null,
+      };
+    });
+
+    res.json(resultado);
   } catch (err) {
     next(err);
   }
@@ -383,6 +442,31 @@ exports.toggleActivo = async (req, res, next) => {
     const nuevoValor = !cultor.usuario.activo;
     await cultor.usuario.update({ activo: nuevoValor });
     res.json({ id_cultor: cultor.id_cultor, activo: nuevoValor });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Subir foto de perfil del cultor logueado (multipart, Cloudinary)
+exports.subirFoto = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Debe seleccionar una imagen' });
+    }
+
+    const cultor = await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+    if (!cultor) {
+      return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
+    }
+
+    const resCloud = await subirBuffer(req.file.buffer, {
+      folder: 'archivo-tachira/fotos-perfil',
+      publicId: `cultor_${cultor.id_cultor}_${Date.now()}`,
+    });
+
+    await cultor.update({ foto_perfil: resCloud.secure_url });
+
+    res.json({ foto_perfil: cultor.foto_perfil });
   } catch (err) {
     next(err);
   }

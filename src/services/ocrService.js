@@ -53,6 +53,7 @@ function extraerCedula(text) {
 //   "PÉREZ, JUAN" (cerca del nro de cédula)
 //   "PÉREZ JUAN"
 function extraerNombres(text) {
+  console.log('[OCR EXTRAER] INICIO - versión con filtro');
   let apellidos = null;
   let nombres = null;
 
@@ -68,19 +69,77 @@ function extraerNombres(text) {
   // alrededor (firmas, palabras sueltas como "Director", "my", etc.), que de otra
   // forma se colaba como si fuera parte del nombre.
   const patronEtiquetaNombres = /NOM[A-Z]?RES?\s*:?\s*/i;
-  const patronEtiquetaApellidos = /APELLIDOS?\s*:?\s*/i;
-  const patronValor = /(?:(?!APELLIDOS|NOM[A-Z]?RES?)[A-ZÁÉÍÓÚÑ]{2,}\s*){1,3}/;
+  // Tolerante a que el OCR lea la 'P' de "APELLIDOS" como otra letra
+  // (ej. "areLLIDOS", "APELLIDOS", "AELLIDOS").
+  const patronEtiquetaApellidos = /A[A-Z]?ELLIDOS?\s*:?\s*/i;
 
   function valorDespuesDe(patronEtiqueta) {
     const matchEtiqueta = text.match(patronEtiqueta);
     if (!matchEtiqueta) return null;
     const restante = text.slice(matchEtiqueta.index + matchEtiqueta[0].length);
-    const matchValor = restante.match(patronValor);
-    return matchValor ? matchValor[0].trim() : null;
+    // Solo se toma la primera línea después de la etiqueta — así no se arrastran
+    // palabras de etiquetas posteriores (CEDULA, NACIONALIDAD, etc.) como parte
+    // del nombre.
+    const lineaRestante = restante.split('\n')[0];
+    const matchValor = lineaRestante.match(/[A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ]+)*/);
+    if (!matchValor) return null;
+
+    // Se filtran palabras que:
+    //   - tienen menos de 3 caracteres (ej. "NX", ruido de OCR)
+    //   - corresponden a etiquetas o datos de la cédula, no a nombres reales
+    //     (ej. "VENEZOLANO", "IDENTIDAD", "NACIMIENTO")
+    const NO_NOMBRES = new Set([
+      'VENEZOLANO', 'VENEZOLANA', 'NACIONALIDAD', 'CEDULA', 'IDENTIDAD',
+      'FECHA', 'SEXO', 'ESTADO', 'LUGAR', 'FIRMA', 'EXPEDICION',
+      'VENCIMIENTO', 'NACIMIENTO', 'SOLTERA', 'SOLTERO', 'CASADA', 'CASADO',
+    ]);
+    const palabrasReales = matchValor[0].trim().split(/\s+/)
+      .filter(p => p.length >= 3 && !NO_NOMBRES.has(p));
+
+    return palabrasReales.length > 0 ? palabrasReales.join(' ') : null;
   }
 
   nombres = valorDespuesDe(patronEtiquetaNombres);
   apellidos = valorDespuesDe(patronEtiquetaApellidos);
+  console.log('[OCR EXTRAER] nombres extraídos:', nombres, 'apellidos extraídos:', apellidos);
+
+  if (apellidos && nombres) {
+    return { apellidos, nombres };
+  }
+
+  // Si se encontraron los nombres pero no los apellidos (el OCR pudo haber leído
+  // mal la etiqueta APELLIDOS como gibberish), se buscan los apellidos en las
+  // líneas anteriores, recorriendo de abajo arriba para encontrar la línea más
+  // cercana que contenga 2+ palabras en mayúsculas (apellidos reales).
+  if (!apellidos && nombres) {
+    console.log('[OCR EXTRAER] buscando apellidos en líneas anteriores a NOMBRES');
+    const matchNombres = text.match(patronEtiquetaNombres);
+    console.log('[OCR EXTRAER] matchNombres:', matchNombres ? matchNombres[0] + ' en índice ' + matchNombres.index : 'null');
+    if (matchNombres) {
+      const textoAntes = text.slice(0, matchNombres.index);
+      const lineasAntes = textoAntes.split('\n').map(l => l.trim()).filter(Boolean);
+      console.log('[OCR EXTRAER] lineasAntes:', JSON.stringify(lineasAntes));
+      for (let i = lineasAntes.length - 1; i >= 0; i--) {
+        const linea = lineasAntes[i];
+        const palabras = linea.match(/[A-ZÁÉÍÓÚÑ]{3,}/g);
+        console.log('[OCR EXTRAER] línea', i, JSON.stringify(linea), '→ palabras:', JSON.stringify(palabras));
+        if (palabras && palabras.length >= 2) {
+          const NO_NOMBRES = new Set([
+            'VENEZOLANO', 'VENEZOLANA', 'NACIONALIDAD', 'CEDULA', 'IDENTIDAD',
+            'FECHA', 'SEXO', 'ESTADO', 'LUGAR', 'FIRMA', 'EXPEDICION',
+            'VENCIMIENTO', 'NACIMIENTO', 'SOLTERA', 'SOLTERO', 'CASADA', 'CASADO',
+          ]);
+          const palabrasReales = palabras.filter(p => !NO_NOMBRES.has(p));
+          if (palabrasReales.length >= 2) {
+            apellidos = palabrasReales.slice(0, 2).join(' ');
+            console.log('[OCR EXTRAER] heurística encontró apellidos:', apellidos);
+            break;
+          }
+        }
+      }
+      if (!apellidos) console.log('[OCR EXTRAER] heurística no encontró apellidos en ninguna línea');
+    }
+  }
 
   if (apellidos && nombres) {
     return { apellidos, nombres };
@@ -91,20 +150,23 @@ function extraerNombres(text) {
   for (const linea of lineas) {
     const matchComa = linea.match(/^([A-ZÁÉÍÓÚÑ\s]+),\s*([A-ZÁÉÍÓÚÑ\s]+)$/i);
     if (matchComa) {
-      apellidos = matchComa[1].trim();
-      nombres = matchComa[2].trim();
-      return { apellidos, nombres };
+      if (!apellidos) apellidos = matchComa[1].trim();
+      if (!nombres) nombres = matchComa[2].trim();
+      if (apellidos && nombres) return { apellidos, nombres };
     }
   }
 
-  // Patrón 3: última línea con dos palabras capitalizadas (apellido + nombre simple)
-  if (lineas.length >= 2) {
+  // Patrón 3: última línea con dos palabras (solo letras mayúsculas y espacios,
+  // sin guiones, puntuación ni números).
+  if (lineas.length >= 2 && (!apellidos || !nombres)) {
     const ultimaLinea = lineas[lineas.length - 1];
-    const palabras = ultimaLinea.split(/\s+/).filter(Boolean);
-    if (palabras.length >= 2 && !/^\d/.test(ultimaLinea)) {
-      apellidos = palabras.slice(0, -1).join(' ');
-      nombres = palabras[palabras.length - 1];
-      return { apellidos, nombres };
+    if (/^[A-ZÁÉÍÓÚÑ\s]+$/i.test(ultimaLinea)) {
+      const palabras = ultimaLinea.split(/\s+/).filter(Boolean);
+      if (palabras.length >= 2) {
+        if (!apellidos) apellidos = palabras.slice(0, -1).join(' ');
+        if (!nombres) nombres = palabras[palabras.length - 1];
+        return { apellidos, nombres };
+      }
     }
   }
 

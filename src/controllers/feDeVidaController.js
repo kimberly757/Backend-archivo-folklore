@@ -1,4 +1,4 @@
-const { FeDeVida } = require('../models');
+const { FeDeVida, Cultores } = require('../models');
 
 // Listar todos los registros
 exports.list = exports.getAll = async (req, res, next) => {
@@ -23,17 +23,23 @@ exports.get = exports.getById = async (req, res, next) => {
   }
 };
 
-// Crear un registro
+// Crear un registro y sincronizar estatus_vida del cultor
 exports.create = async (req, res, next) => {
   try {
     const item = await FeDeVida.create(req.body);
+    if (item.id_cultor && item.estatus_confirmado) {
+      await Cultores.update(
+        { estatus_vida: item.estatus_confirmado },
+        { where: { id_cultor: item.id_cultor } },
+      );
+    }
     res.status(201).json(item);
   } catch (err) {
     next(err);
   }
 };
 
-// Actualizar un registro
+// Actualizar un registro y sincronizar estatus_vida del cultor
 exports.update = async (req, res, next) => {
   try {
     const item = await FeDeVida.findByPk(req.params.id_fe_de_vida || req.params.id);
@@ -41,6 +47,12 @@ exports.update = async (req, res, next) => {
       return res.status(404).json({ error: 'Registro no encontrado en fe_de_vida' });
     }
     await item.update(req.body);
+    if (item.id_cultor && req.body.estatus_confirmado !== undefined) {
+      await Cultores.update(
+        { estatus_vida: req.body.estatus_confirmado || null },
+        { where: { id_cultor: item.id_cultor } },
+      );
+    }
     res.json(item);
   } catch (err) {
     next(err);

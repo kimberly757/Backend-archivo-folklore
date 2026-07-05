@@ -52,8 +52,12 @@ exports.list = exports.getAll = async (req, res, next) => {
 
 exports.getPublico = async (req, res, next) => {
   try {
+    const where = { estatus: 'aprobado' };
+    if (req.query.cultor_id) {
+      where.id_cultor = parseInt(req.query.cultor_id, 10);
+    }
     const items = await Obras.findAll({
-      where: { estatus: 'aprobado' },
+      where,
       attributes: { exclude: ['observaciones_admin'] },
       include: [
         { model: Multimedia, as: 'multimedia' },

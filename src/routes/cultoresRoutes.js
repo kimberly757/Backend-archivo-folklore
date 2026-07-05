@@ -5,6 +5,7 @@ const { requireAuth, requireRole, requireOwnCultorOrAdmin, requireActivo } = req
 const { validateZod } = require('../middlewares/validateZod');
 const { makeParamIdSchema } = require('../validators/commonSchemas');
 const { cultoresCreateSchema, cultoresUpdateSchema, cultoresMiPerfilUpdateSchema, appendCurriculumSchema, estatusSchema } = require('../validators/domainSchemas');
+const upload = require('../middlewares/uploadMiddleware');
 
 // Ruta pública (sin auth): la web pública solo ve cultores ya aprobados.
 // Debe declararse ANTES de '/:id_cultor' para que Express no la confunda con un id.
@@ -31,6 +32,7 @@ router.post('/ingreso-manual', requireAuth, requireRole('administrador'), valida
 // requireActivo bloquea a cultores inactivos (el admin siempre pasa).
 router.patch('/mi-perfil', requireAuth, requireActivo, requireOwnCultorOrAdmin, validateZod({ body: cultoresMiPerfilUpdateSchema }), controller.updateMiPerfil);
 router.patch('/mi-perfil/curriculum', requireAuth, requireActivo, requireOwnCultorOrAdmin, validateZod({ body: appendCurriculumSchema }), controller.appendCurriculum);
+router.post('/subir-foto', requireAuth, requireActivo, upload.single('archivo'), controller.subirFoto);
 
 // Rutas de escritura protegidas (gestión administrativa)
 router.put('/:id_cultor', requireAuth, requireRole('administrador'), validateZod({ params: makeParamIdSchema('id_cultor'), body: cultoresUpdateSchema }), controller.update);
