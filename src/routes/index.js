@@ -28,6 +28,7 @@ const rolesRoutes = require('./rolesRoutes');
 const configuracionWebRoutes = require('./configuracionWebRoutes');
 const publicGaleriaRoutes = require('./publicGaleriaRoutes');
 const statsRoutes = require('./statsRoutes');
+const salasRoutes = require('./salasRoutes');
 
 const router = express.Router();
 
@@ -60,6 +61,7 @@ const routeModules = [
   publicGaleriaRoutes,
   configuracionWebRoutes,
   statsRoutes,
+  salasRoutes,
 ];
 
 routeModules.forEach((routeModule) => {

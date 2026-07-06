@@ -29,7 +29,7 @@ app.use(cors({
 app.use(morgan('dev'));
 
 // Parsear cuerpo de peticiones
-app.use(express.json({ limit: '1mb', strict: true }));
+app.use(express.json({ limit: '50mb', strict: true }));
 app.use(express.urlencoded({ extended: true }));
 
 // Documentación de API interactiva Swagger

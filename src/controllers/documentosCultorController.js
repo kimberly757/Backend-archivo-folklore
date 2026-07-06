@@ -98,20 +98,27 @@ exports.validarCedulaImagen = async (req, res, next) => {
 // crear el registro, es lo correcto.
 exports.uploadCedula = async (req, res, next) => {
   try {
+    console.log('[uploadCedula] LLEGÓ PETICIÓN. file:', !!req.file, 'size:', req.file?.size, 'mime:', req.file?.mimetype, 'id_cultor:', req.body?.id_cultor);
+
     if (!req.file) {
+      console.log('[uploadCedula] ERROR: no hay archivo');
       return res.status(400).json({ error: 'Debes adjuntar un archivo de imagen.' });
     }
 
     const { id_cultor } = req.body;
     if (!id_cultor) {
+      console.log('[uploadCedula] ERROR: no hay id_cultor');
       return res.status(400).json({ error: 'id_cultor es requerido.' });
     }
 
+    console.log('[uploadCedula] Subiendo a Cloudinary...');
     const resultado = await subirBuffer(req.file.buffer, {
       folder: 'archivo-tachira/cedulas',
       publicId: `cultor_${id_cultor}_${Date.now()}`,
     });
+    console.log('[uploadCedula] Cloudinary OK:', resultado.secure_url);
 
+    console.log('[uploadCedula] Creando registro en BD...');
     const documento = await DocumentosCultor.create({
       id_cultor,
       tipo_documento: 'cedula',
@@ -120,12 +127,51 @@ exports.uploadCedula = async (req, res, next) => {
       fecha_carga: new Date(),
       id_usuario_carga: req.auth?.id_usuario || null,
     });
+    console.log('[uploadCedula] Documento CREADO:', documento.id_documento);
 
     res.status(201).json(documento);
   } catch (err) {
+    console.log('[uploadCedula] ERROR en catch:', err.message);
     if (err.ocrFallo) {
       return res.status(err.status || 422).json({ error: err.message });
     }
+    next(err);
+  }
+};
+
+// Subir múltiples documentos de soporte (vía POST /documentos_cultor/subir-soporte).
+// Recibe un array de archivos bajo el campo "archivos" y los asocia al id_cultor.
+exports.uploadSoporte = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'Debes adjuntar al menos un archivo.' });
+    }
+
+    const { id_cultor } = req.body;
+    if (!id_cultor) {
+      return res.status(400).json({ error: 'id_cultor es requerido.' });
+    }
+
+    const documentos = [];
+    for (const file of req.files) {
+      const resultado = await subirBuffer(file.buffer, {
+        folder: 'archivo-tachira/documentos-soporte',
+        publicId: `soporte_${id_cultor}_${Date.now()}_${documentos.length}`,
+      });
+
+      const doc = await DocumentosCultor.create({
+        id_cultor,
+        tipo_documento: 'soporte',
+        url_archivo: resultado.secure_url,
+        nombre_archivo: file.originalname,
+        fecha_carga: new Date(),
+        id_usuario_carga: req.auth?.id_usuario || null,
+      });
+      documentos.push(doc);
+    }
+
+    res.status(201).json(documentos);
+  } catch (err) {
     next(err);
   }
 };

@@ -1,8 +1,9 @@
 const crypto = require('crypto');
-const { Cultores, Usuarios, Roles, Parroquias, Municipios, Notificaciones, FeDeVida, Oficios, sequelize } = require('../models');
+const { Cultores, Usuarios, Roles, Parroquias, Municipios, Notificaciones, FeDeVida, Oficios, DocumentosCultor, sequelize } = require('../models');
 const { hashPassword } = require('../services/passwordService');
 const { subirBuffer } = require('../services/cloudinaryService');
 const { getIO } = require('../services/socketManager');
+const { Readable } = require('stream');
 
 const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado'];
 
@@ -21,6 +22,10 @@ const INCLUDE_COMPLETO = [{
 }, {
   model: FeDeVida,
   as: 'fesDeVida',
+  required: false,
+}, {
+  model: DocumentosCultor,
+  as: 'documentos',
   required: false,
 }];
 
@@ -169,7 +174,9 @@ exports.getPublico = async (req, res, next) => {
 // Obtener un registro por ID
 exports.get = exports.getById = async (req, res, next) => {
   try {
-    const item = await Cultores.findByPk(req.params.id_cultor || req.params.id);
+    const item = await Cultores.findByPk(req.params.id_cultor || req.params.id, {
+      include: INCLUDE_COMPLETO,
+    });
     if (!item) {
       return res.status(404).json({ error: 'Registro no encontrado en cultores' });
     }
@@ -222,7 +229,62 @@ exports.create = async (req, res, next) => {
       fecha_nacimiento: req.body.fecha_nacimiento ? toDateOnly(req.body.fecha_nacimiento) : null,
       fecha_registro: new Date(),
     });
-    res.status(201).json(item);
+
+    // Si viene una cédula en base64, la subimos a Cloudinary y creamos el documento
+    let documentoCedula = null;
+    if (req.body.documento_cedula_base64 && req.body.documento_cedula_nombre) {
+      try {
+        const buffer = Buffer.from(req.body.documento_cedula_base64, 'base64');
+        const resultado = await subirBuffer(buffer, {
+          folder: 'archivo-tachira/cedulas',
+          publicId: `cultor_${item.id_cultor}_${Date.now()}`,
+        });
+        documentoCedula = await DocumentosCultor.create({
+          id_cultor: item.id_cultor,
+          tipo_documento: 'cedula',
+          url_archivo: resultado.secure_url,
+          nombre_archivo: req.body.documento_cedula_nombre,
+          fecha_carga: new Date(),
+          id_usuario_carga: null,
+        });
+      } catch (e) {
+        console.error('[cultores.create] Error subiendo cédula base64:', e.message);
+      }
+    }
+
+    // Soporte: array de objetos { base64, nombre }
+    const documentosSoporte = [];
+    if (Array.isArray(req.body.documentos_soporte)) {
+      for (const doc of req.body.documentos_soporte) {
+        if (doc.base64 && doc.nombre) {
+          try {
+            const buffer = Buffer.from(doc.base64, 'base64');
+            const resultado = await subirBuffer(buffer, {
+              folder: 'archivo-tachira/documentos-soporte',
+              publicId: `soporte_${item.id_cultor}_${Date.now()}_${documentosSoporte.length}`,
+            });
+            const creado = await DocumentosCultor.create({
+              id_cultor: item.id_cultor,
+              tipo_documento: 'soporte',
+              url_archivo: resultado.secure_url,
+              nombre_archivo: doc.nombre,
+              fecha_carga: new Date(),
+              id_usuario_carga: null,
+            });
+            documentosSoporte.push(creado);
+          } catch (e) {
+            console.error('[cultores.create] Error subiendo soporte:', e.message);
+          }
+        }
+      }
+    }
+
+    // Incluir documentos en la respuesta si se crearon
+    const responseData = item.toJSON();
+    if (documentoCedula) responseData.documentoCedula = documentoCedula;
+    if (documentosSoporte.length > 0) responseData.documentosSoporte = documentosSoporte;
+    
+    res.status(201).json(responseData);
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
       const campo = err.fields ? Object.keys(err.fields)[0] : 'dato';

@@ -369,3 +369,43 @@ module.exports = {
   updateProfile,
   changePassword,
 };
+
+const verifyPasswordOnly = async (req, res, next) => {
+  try {
+    if (!req.auth || !req.auth.id_usuario) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Debe proporcionar la contraseña' });
+    }
+
+    const user = await Usuarios.findByPk(req.auth.id_usuario);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const isValid = await verifyPassword(password, user.password_hash);
+    if (!isValid) {
+      return res.status(400).json({ error: 'Contraseña incorrecta' });
+    }
+
+    res.json({ valida: true });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  verifyToken,
+  forgotPassword,
+  olvidePassword,
+  resetPassword,
+  getProfile,
+  updateProfile,
+  changePassword,
+  verifyPasswordOnly,
+};

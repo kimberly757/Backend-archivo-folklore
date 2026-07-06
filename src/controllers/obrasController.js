@@ -198,7 +198,11 @@ exports.updateEstatus = async (req, res, next) => {
     }
     const nuevoEstatus = req.body.estatus;
     const fechaAprobacion = nuevoEstatus === 'aprobado' ? new Date() : item.fecha_aprobacion;
-    await item.update({ estatus: nuevoEstatus, fecha_aprobacion: fechaAprobacion });
+    const updateData = { estatus: nuevoEstatus, fecha_aprobacion: fechaAprobacion };
+    if (req.body.ubicacion_actual !== undefined) {
+      updateData.ubicacion_actual = req.body.ubicacion_actual;
+    }
+    await item.update(updateData);
 
     // Crear notificación para el cultor autor de la obra
     try {

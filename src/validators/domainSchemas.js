@@ -121,6 +121,7 @@ const efemeridesUpdateSchema = efemeridesCreateSchema.partial().strict();
 
 const estatusSchema = z.object({
   estatus: z.enum(['pendiente', 'aprobado', 'rechazado']),
+  ubicacion_actual: z.string().max(150).optional().nullable(),
 }).strict();
 
 // Campos de control de aprobación (estatus, observaciones_admin, fecha_aprobacion,

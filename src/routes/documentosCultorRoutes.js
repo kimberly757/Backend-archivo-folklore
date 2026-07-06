@@ -12,6 +12,7 @@ router.get('/:id_documento', controller.getById);
 router.post('/', controller.create);
 router.post('/validar-cedula', upload.single('archivo'), controller.validarCedulaImagen);
 router.post('/cedula', upload.single('archivo'), controller.uploadCedula);
+router.post('/subir-soporte', upload.array('archivos', 10), controller.uploadSoporte);
 router.put('/:id_documento', controller.update);
 router.delete('/:id_documento', controller.delete);
 

@@ -28,5 +28,6 @@ router.post('/reset-password', validateZod({ body: resetPasswordSchema }), authC
 router.get('/profile', requireAuth, authController.getProfile);
 router.put('/profile', requireAuth, validateZod({ body: updateProfileSchema }), authController.updateProfile);
 router.post('/change-password', requireAuth, validateZod({ body: changePasswordSchema }), authController.changePassword);
+router.post('/verify-password', requireAuth, authController.verifyPasswordOnly);
 
 module.exports = { path: '/auth', router };
