@@ -234,7 +234,13 @@ const resetPassword = async (req, res, next) => {
 
     const user = await Usuarios.findOne({ where: { reset_password_token: token } });
     if (!user) {
-      return res.status(400).json({ error: 'Token inválido o ya utilizado' });
+      // No queda registro de este token en BD: o ya se usó para restablecer la
+      // contraseña una vez (se limpia tras usarse), o se pidió un enlace más nuevo
+      // que lo reemplazó (solo se guarda un token vigente por cuenta a la vez). No
+      // se puede distinguir cuál de los dos pasó, así que el mensaje cubre ambos.
+      return res.status(400).json({
+        error: 'Este enlace de recuperación ya no es válido: puede haberse usado antes, haber expirado, o haberse generado uno más reciente. Solicita un enlace nuevo.',
+      });
     }
 
     if (!user.reset_password_expires || user.reset_password_expires < new Date()) {
