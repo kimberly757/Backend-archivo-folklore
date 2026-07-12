@@ -403,6 +403,29 @@ exports.ingresoManual = async (req, res, next) => {
       });
     }
 
+    // Mismas verificaciones previas que create(): evita subir la cédula a Cloudinary
+    // para nada cuando el duplicado se puede detectar antes, y da un 409 claro con el
+    // campo exacto en vez de depender del error genérico de restricción única de la BD.
+    if (req.body.cedula) {
+      const existeCedula = await Cultores.findOne({ where: { cedula: req.body.cedula } });
+      if (existeCedula) {
+        return res.status(409).json({
+          error: 'La cédula ya se encuentra registrada en el sistema.',
+          campo: 'cedula',
+        });
+      }
+    }
+
+    if (req.body.correo_contacto) {
+      const existeCorreo = await Cultores.findOne({ where: { correo_contacto: req.body.correo_contacto } });
+      if (existeCorreo) {
+        return res.status(409).json({
+          error: 'El correo ya se encuentra registrado en el sistema.',
+          campo: 'correo_contacto',
+        });
+      }
+    }
+
     let passwordTemporal;
 
     const cultorCreado = await sequelize.transaction(async (t) => {
@@ -430,6 +453,20 @@ exports.ingresoManual = async (req, res, next) => {
 
     res.status(201).json(respuesta);
   } catch (err) {
+    // Mismo manejo que create(): si de todas formas se cuela un duplicado (condición
+    // de carrera entre la verificación previa y el insert), responde 409 con el campo
+    // exacto en vez del 400 genérico de Sequelize.
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      const campo = err.fields ? Object.keys(err.fields)[0] : 'dato';
+      const mensajes = {
+        cedula: 'La cédula ya se encuentra registrada en el sistema.',
+        correo_contacto: 'El correo ya se encuentra registrado en el sistema.',
+      };
+      return res.status(409).json({
+        error: mensajes[campo] || 'El dato ya se encuentra registrado.',
+        campo,
+      });
+    }
     if (err.status) {
       return res.status(err.status).json({ error: err.message });
     }
@@ -607,6 +644,22 @@ exports.subirFoto = async (req, res, next) => {
     await cultor.update({ foto_perfil: resCloud.secure_url });
 
     res.json({ foto_perfil: cultor.foto_perfil });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Eliminar la foto de perfil del cultor logueado (deja el campo vacío, sin subir nada).
+exports.eliminarFoto = async (req, res, next) => {
+  try {
+    const cultor = await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+    if (!cultor) {
+      return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
+    }
+
+    await cultor.update({ foto_perfil: null });
+
+    res.json({ foto_perfil: null });
   } catch (err) {
     next(err);
   }

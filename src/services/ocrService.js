@@ -1,7 +1,27 @@
 const { createWorker } = require('tesseract.js');
+const sharp = require('sharp');
 
 const WORKER_TIMEOUT = 45_000;
 const OCR_TIMEOUT = 20_000;
+const ANCHO_MINIMO_OCR = 1600;
+
+// Las fotos de cédula suelen venir con brillo desigual, reflejos y poca resolución
+// (fotos de celular, no escaneos), lo que hace que Tesseract confunda o invente
+// dígitos. Convertir a escala de grises, normalizar contraste y asegurar un ancho
+// mínimo antes de reconocer reduce esos errores sin cambiar el contenido de la imagen.
+// Si el preprocesamiento falla por cualquier motivo, se usa la imagen original.
+async function preprocesarImagen(buffer) {
+  try {
+    const metadata = await sharp(buffer).metadata();
+    let pipeline = sharp(buffer).rotate();
+    if (metadata.width && metadata.width < ANCHO_MINIMO_OCR) {
+      pipeline = pipeline.resize({ width: ANCHO_MINIMO_OCR });
+    }
+    return await pipeline.grayscale().normalize().sharpen().toBuffer();
+  } catch (_) {
+    return buffer;
+  }
+}
 
 let workerPromise = null;
 
@@ -189,9 +209,11 @@ async function validarCedula(buffer) {
     });
   }
 
+  const bufferProcesado = await preprocesarImagen(buffer);
+
   let resultado;
   try {
-    resultado = await conTimeout(w.recognize(buffer), OCR_TIMEOUT, 'OCR recognition');
+    resultado = await conTimeout(w.recognize(bufferProcesado), OCR_TIMEOUT, 'OCR recognition');
   } catch (err) {
     throw Object.assign(new Error('No se pudo analizar la imagen. Asegúrese de que sea una imagen clara de una Cédula de Identidad.'), {
       status: 422,

@@ -49,6 +49,10 @@ const factory = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    anio_creacion: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     significado_cultural: {
       type: DataTypes.STRING,
       allowNull: true,

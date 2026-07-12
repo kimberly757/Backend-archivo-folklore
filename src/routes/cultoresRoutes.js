@@ -42,6 +42,7 @@ router.post('/ingreso-manual', requireAuth, requireRole('administrador'), upload
 router.patch('/mi-perfil', requireAuth, requireActivo, requireOwnCultorOrAdmin, validateZod({ body: cultoresMiPerfilUpdateSchema }), controller.updateMiPerfil);
 router.patch('/mi-perfil/curriculum', requireAuth, requireActivo, requireOwnCultorOrAdmin, validateZod({ body: appendCurriculumSchema }), controller.appendCurriculum);
 router.post('/subir-foto', requireAuth, requireActivo, upload.single('archivo'), controller.subirFoto);
+router.delete('/mi-foto', requireAuth, requireActivo, controller.eliminarFoto);
 
 // Rutas de escritura protegidas (gestión administrativa)
 router.put('/:id_cultor', requireAuth, requireRole('administrador'), validateZod({ params: makeParamIdSchema('id_cultor'), body: cultoresUpdateSchema }), controller.update);
