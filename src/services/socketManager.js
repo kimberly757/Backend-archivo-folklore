@@ -1,8 +1,11 @@
 const { Server } = require('socket.io');
 
+// Misma lógica que app.js: localhost para desarrollo + dominios de producción vía
+// la variable de entorno ALLOWED_ORIGINS (separados por coma).
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:5174',
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []),
 ];
 
 let io = null;
