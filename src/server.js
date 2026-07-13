@@ -59,8 +59,6 @@ function liberarPuerto(p) {
 }
 
 async function startServer(attempt = 0) {
-  await tryConnectDatabase();
-
   const server = http.createServer(app);
   initSocketIO(server);
   server.listen(port, () => {
@@ -82,6 +80,18 @@ async function startServer(attempt = 0) {
       process.exit(1);
     }
   });
+
+  // La conexión a la BD se intenta en segundo plano, sin bloquear el arranque del
+  // servidor HTTP: si Neon no responde de inmediato (DNS/VPN), el servidor igual
+  // queda levantado y el ciclo de reintentos ya existente se encarga de reconectar.
+  // .catch de seguridad: una promesa rechazada sin capturar tumba el proceso completo
+  // en Node moderno, y esto corre sin await, así que nada más la atraparía.
+  tryConnectDatabase().catch((err) => {
+    console.error('❌ Error inesperado al intentar conectar con la base de datos:', err.message);
+  });
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error('❌ Error inesperado al iniciar el servidor:', err.message);
+  process.exit(1);
+});

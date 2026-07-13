@@ -62,7 +62,16 @@ if (config.db.url) {
 
 async function testConnection() {
   try {
-    await sequelize.authenticate();
+    // connectTimeout (arriba) cubre el handshake TCP, pero no una resolución DNS
+    // colgada (p.ej. sin VPN en redes donde el DNS normal no resuelve Neon) — sin
+    // este timeout manual, ese caso se queda esperando para siempre y el ciclo de
+    // reintentos de abajo nunca llega a activarse.
+    await Promise.race([
+      sequelize.authenticate(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Tiempo de espera agotado al conectar con la base de datos')), 12000)
+      ),
+    ]);
     console.log('✅ Database connection has been established successfully.');
     return true;
   } catch (error) {
