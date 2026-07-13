@@ -33,6 +33,7 @@ exports.update = async (req, res, next) => {
       'contacto_email',
       'contacto_telefono',
       'contacto_direccion',
+      'contacto_horario',
       'login_titulo',
       'login_subtitulo',
       'login_top_label',

@@ -35,6 +35,11 @@ const factory = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: 'San Cristóbal, Estado Táchira, Venezuela'
     },
+    contacto_horario: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: 'Martes a Viernes: 8:00 AM – 4:00 PM\nSábados y Domingos: 10:00 AM – 4:00 PM'
+    },
     hero_imagen: {
       type: DataTypes.STRING(2048),
       allowNull: true
