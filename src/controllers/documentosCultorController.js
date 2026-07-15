@@ -1,4 +1,4 @@
-const { DocumentosCultor } = require('../models');
+const { DocumentosCultor, Cultores } = require('../models');
 const { subirBuffer } = require('../services/cloudinaryService');
 const { validarCedula } = require('../services/ocrService');
 
@@ -7,6 +7,44 @@ exports.list = exports.getAll = async (req, res, next) => {
   try {
     const items = await DocumentosCultor.findAll();
     res.json(items);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Listar documentos del cultor autenticado (solo documentos de soporte)
+exports.getMisDocumentos = async (req, res, next) => {
+  try {
+    const cultor = await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+    if (!cultor) {
+      return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
+    }
+    const items = await DocumentosCultor.findAll({
+      where: { id_cultor: cultor.id_cultor, tipo_documento: 'soporte' },
+      order: [['fecha_carga', 'DESC']],
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Eliminar un documento de soporte propio (requireAuth, verifica que pertenezca al cultor)
+exports.deleteMisDocumentos = async (req, res, next) => {
+  try {
+    const cultor = await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+    if (!cultor) {
+      return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
+    }
+    const item = await DocumentosCultor.findByPk(req.params.id_documento);
+    if (!item) {
+      return res.status(404).json({ error: 'Documento no encontrado.' });
+    }
+    if (item.id_cultor !== cultor.id_cultor) {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar este documento.' });
+    }
+    await item.destroy();
+    res.status(204).end();
   } catch (err) {
     next(err);
   }
