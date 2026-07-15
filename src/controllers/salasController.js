@@ -1,7 +1,9 @@
 const { Salas, Obras, Multimedia, Cultores, Sequelize } = require('../models');
 const { Op } = require('sequelize');
 
-const TIPO_PREFIX = { 'Exhibición': 'EXH', 'Almacén': 'ALM', 'Taller': 'TLL' };
+const TIPO_PREFIX = { 'Exhibición': 'EXH', 'Almacén': 'ALM', 'Taller': 'TLL', 'Digital': 'DIG' };
+
+const SALA_SIN_UBICACION = 'Sin ubicación física';
 
 async function generarCodigo(tipo) {
   const prefix = TIPO_PREFIX[tipo] || 'EXH';
@@ -28,10 +30,17 @@ function mapTipoFromUbicacion(ubicacion) {
 
 async function autoSeedFromObras() {
   const count = await Salas.count();
-  if (count > 0) return;
+  if (count > 0) {
+    const sinUbicacion = await Salas.findOne({ where: { nombre: SALA_SIN_UBICACION } });
+    if (!sinUbicacion) {
+      const codigo = await generarCodigo('Digital');
+      await Salas.create({ codigo, nombre: SALA_SIN_UBICACION, tipo: 'Digital', estado: 'Habilitada' });
+    }
+    return;
+  }
   const ubicaciones = await Obras.findAll({
     attributes: ['ubicacion_actual'],
-      where: { ubicacion_actual: { [Op.ne]: null } },
+      where: { ubicacion_actual: { [Op.ne]: null, [Op.ne]: SALA_SIN_UBICACION } },
     group: ['ubicacion_actual'],
     raw: true,
   });
@@ -43,6 +52,11 @@ async function autoSeedFromObras() {
       const codigo = await generarCodigo(tipo);
       await Salas.create({ codigo, nombre: name, tipo, estado: 'Habilitada' });
     }
+  }
+  const existingDigital = await Salas.findOne({ where: { nombre: SALA_SIN_UBICACION } });
+  if (!existingDigital) {
+    const codigo = await generarCodigo('Digital');
+    await Salas.create({ codigo, nombre: SALA_SIN_UBICACION, tipo: 'Digital', estado: 'Habilitada' });
   }
   if (names.length > 0) {
     console.log(`🏛️  Salas auto-sembradas desde obras existentes: ${names.length} salas creadas.`);
@@ -93,6 +107,9 @@ exports.update = async (req, res, next) => {
   try {
     const item = await Salas.findByPk(req.params.id_sala);
     if (!item) return res.status(404).json({ error: 'Sala no encontrada' });
+    if (item.nombre === SALA_SIN_UBICACION && req.body.nombre && req.body.nombre !== item.nombre) {
+      return res.status(400).json({ error: 'No se puede renombrar la sala "Sin ubicación física"' });
+    }
     const oldNombre = item.nombre;
     await item.update(req.body);
     if (req.body.nombre && req.body.nombre !== oldNombre) {
@@ -120,7 +137,7 @@ exports.cambiarEstado = async (req, res, next) => {
 
     if (estado === 'Deshabilitada') {
       const count = await Obras.count({ where: { ubicacion_actual: sala.nombre } });
-      if (count > 0) {
+      if (count > 0 && sala.nombre !== SALA_SIN_UBICACION) {
         if (moverA) {
           const target = await Salas.findByPk(moverA);
           if (!target) return res.status(404).json({ error: 'Sala de destino no encontrada' });
@@ -153,6 +170,9 @@ exports.remove = exports.delete = async (req, res, next) => {
   try {
     const item = await Salas.findByPk(req.params.id_sala);
     if (!item) return res.status(404).json({ error: 'Sala no encontrada' });
+    if (item.nombre === SALA_SIN_UBICACION) {
+      return res.status(400).json({ error: 'No se puede eliminar la sala "Sin ubicación física"' });
+    }
     await item.destroy();
     res.status(204).end();
   } catch (err) {
