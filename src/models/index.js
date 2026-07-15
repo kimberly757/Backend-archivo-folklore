@@ -11,6 +11,7 @@ const Efemerides = require('./efemeridesModel')(sequelize, Sequelize.DataTypes);
 const Exposiciones = require('./exposicionesModel')(sequelize, Sequelize.DataTypes);
 const ExposicionManifestaciones = require('./exposicionManifestacionesModel')(sequelize, Sequelize.DataTypes);
 const ExposicionObras = require('./exposicionObrasModel')(sequelize, Sequelize.DataTypes);
+const ExposicionFotos = require('./exposicionFotosModel')(sequelize, Sequelize.DataTypes);
 const FeDeVida = require('./feDeVidaModel')(sequelize, Sequelize.DataTypes);
 const Manifestaciones = require('./manifestacionesModel')(sequelize, Sequelize.DataTypes);
 const Multimedia = require('./multimediaModel')(sequelize, Sequelize.DataTypes);
@@ -145,6 +146,10 @@ Obras.belongsToMany(Exposiciones, {
   as: 'exposiciones'
 });
 
+// Relaciones: ExposicionFotos <-> Exposiciones
+Exposiciones.hasMany(ExposicionFotos, { foreignKey: 'id_exposicion', as: 'fotosDirectas' });
+ExposicionFotos.belongsTo(Exposiciones, { foreignKey: 'id_exposicion', as: 'exposicion' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -158,6 +163,7 @@ module.exports = {
   Exposiciones,
   ExposicionManifestaciones,
   ExposicionObras,
+  ExposicionFotos,
   FeDeVida,
   Manifestaciones,
   Multimedia,

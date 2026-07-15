@@ -11,6 +11,7 @@ const efemeridesRoutes = require('./efemeridesRoutes');
 const exposicionesRoutes = require('./exposicionesRoutes');
 const exposicionManifestacionesRoutes = require('./exposicionManifestacionesRoutes');
 const exposicionObrasRoutes = require('./exposicionObrasRoutes');
+const exposicionFotosRoutes = require('./exposicionFotosRoutes');
 const feDeVidaRoutes = require('./feDeVidaRoutes');
 const manifestacionesRoutes = require('./manifestacionesRoutes');
 const multimediaRoutes = require('./multimediaRoutes');
@@ -46,6 +47,7 @@ const routeModules = [
   exposicionesRoutes,
   exposicionManifestacionesRoutes,
   exposicionObrasRoutes,
+  exposicionFotosRoutes,
   feDeVidaRoutes,
   manifestacionesRoutes,
   multimediaRoutes,

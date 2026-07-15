@@ -1,4 +1,4 @@
-const { Obras, Exposiciones, ExposicionObras, Cultores, Multimedia } = require('../models');
+const { Obras, Exposiciones, ExposicionObras, ExposicionFotos, Cultores, Multimedia } = require('../models');
 
 // Obtener todas las obras que están marcadas para mostrarse en la web pública
 exports.getGaleriaPublica = async (req, res, next) => {
@@ -55,7 +55,11 @@ exports.getExposicionActiva = async (req, res, next) => {
 
     res.json({
       exposicion,
-      obras
+      obras,
+      fotosDirectas: await ExposicionFotos.findAll({
+        where: { id_exposicion: exposicion.id_exposicion },
+        order: [['fecha_carga', 'DESC']],
+      })
     });
   } catch (err) {
     next(err);
