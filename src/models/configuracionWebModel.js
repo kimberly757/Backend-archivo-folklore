@@ -56,7 +56,7 @@ const factory = (sequelize, DataTypes) => {
     login_subtitulo: {
       type: DataTypes.STRING(2048),
       allowNull: true,
-      defaultValue: 'Archivo Regional del Folklore y Patrimonio Cultural «Luis Felipe Ramón y Rivera»'
+      defaultValue: 'Archivo Regional del Folklore y Patrimonio Cultural "Luis Felipe Ramón y Rivera"'
     },
     login_top_label: {
       type: DataTypes.STRING(2048),
